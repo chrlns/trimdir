@@ -1,0 +1,15 @@
+Source: trimdir
+Section: utils
+Priority: optional
+Maintainer: Christian Lins <christian@lins.me>
+Homepage: https://bitbucket.org/cli/trimdir
+Standards-Version: 3.9.1.0
+Build-Depends: debhelper (>= 7.0.50~)
+
+Package: trimdir
+Architecture: all
+Depends: python
+Description: trimdir
+ Small tool that can delete files from a specific directory until a threshold
+ size is reached. Written to delete oldest files from the Gnome/Xfce trash
+ via cronjobs etc.
