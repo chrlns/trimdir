@@ -1,0 +1,124 @@
+#!/usr/bin/python
+
+# The MIT License for
+#
+# trimdir
+# Copyright (C) 2009-2012 Christian Lins <christian@lins.me>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+# What does this script? It trims the size of a directory (e.g. your desktop
+# trash) under a specific treshold by deleting old files.
+# Please note: this script does not work on Windows platforms.
+
+VERSION=0.1
+
+import os
+from os import *
+from os.path import *
+import sys
+
+# Path of the directory that should be trimmed
+PATH = None 
+
+# Maximum size of trash in megabyte
+MAXSIZE   = 1073741824 # default: 1G   
+
+# Determines the size of the given directory recursing all subdirs
+def dirsize(size, path):
+    for root, dirs, files in os.walk(path):
+        for name in files:
+            joinedpath = join(root, name)
+            if not islink(joinedpath):
+                size += getsize(joinedpath)
+    return size
+
+# Removes a directory and all containing files and subdirectories
+def rmdir_r(path):
+    try:
+        allin = listdir(path)
+        for df in allin:
+            if isfile(path + "/" + df) or islink(path + "/" + df):
+                remove(path + '/' + df)
+            else:
+                rmdir_r(path + '/' + df)
+        if path.startswith(PATH):
+            rmdir(path)
+        else:
+            print "Sanity check failed!"
+    except OSError, ex:
+        print "Error while deleting %s: %s" % (path, ex)
+
+def regtrash():
+    current_size = dirsize(0, PATH) / 1024 / 1024
+    filetimes = {}
+
+    for f in listdir(PATH):
+        if not islink(PATH + '/' + f):
+            filetimes[getatime(PATH + '/' + f)] = f
+        else:
+            unlink(PATH + '/' + f)
+  
+    while current_size > MAXSIZE and len(filetimes) > 0:
+        print "Trash has size if %u megabytes." % current_size
+        # Search for smallest time value
+        smallest = filetimes.keys()[0]
+        for ftime in filetimes:
+            if smallest > ftime:
+                smallest = ftime
+            delpath = PATH + "/" + filetimes[smallest]
+            print "Purging " + delpath + " .."
+            del filetimes[smallest]
+            if isdir(delpath):
+                current_size -= dirsize(0, delpath)
+                rmdir_r(delpath)
+            else:
+                current_size -= getsize(delpath) / 1024 / 1024
+            if delpath.startswith(PATH):
+                remove(delpath)
+            else:
+                print("Sanity check failed!")
+
+# Check for command line parameter
+if len(sys.argv) != 2 and len(sys.argv) != 3:
+    print("Usage: trimdir <directory> [maxsize]\n")
+    print("trimdir can trim the contents of a directory below a specified")
+    print("treshold by deleting the oldest files within the directory.")
+    print("Use with care as this program can delete A LOT OF files at once.\n")
+    print("Options:")
+    print("       maxsize    Maximum allowed directory size (default: 1G)")
+    print("\n")
+    sys.exit(1)
+else:
+    PATH = sys.argv[1]
+    if len(sys.argv) == 3:
+        MAXSIZE = sys.argv[2]
+
+        if sys.argv[2][-1:] == "K":
+            MAXSIZE = int(sys.argv[2][:-1]) * 1024
+        elif sys.argv[2][-1:] == "M":
+            MAXSIZE = int(sys.argv[2][:-1]) * 1024 * 1024
+        elif sys.argv[2][-1:] == "G":
+            MAXSIZE = int(sys.argv[2][:-1]) * 1024 * 1024 * 1024
+        else:
+            MAXSIZE = int(sys.argv[2])
+
+    regtrash()
+    sys.exit(0)
+
